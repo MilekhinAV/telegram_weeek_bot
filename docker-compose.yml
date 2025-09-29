@@ -1,0 +1,21 @@
+services:
+  weeek-voice-bot:
+    image: weeek-voice-bot:latest   # или ваш registry/image:tag
+    # если собираете локально:
+    # build: .
+    restart: always
+    env_file:
+      - .env
+    environment:
+      TZ: Europe/Moscow            # или ваш TZ; важно для поля day
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; print('ok')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
