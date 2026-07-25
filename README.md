@@ -294,17 +294,17 @@ nano .env
 Добавьте настройки:
 
 ```dotenv
-TELEGRAM_BOT_TOKEN=
-WEEEK_API_KEY=
+TELEGRAM_BOT_TOKEN=put_telegram_bot_token_here
+WEEEK_API_KEY=put_weeek_api_key_here
 
 WEEEK_BASE_URL=https://api.weeek.net/public/v1
 WEEEK_TASKS_ENDPOINT=/tm/tasks
 
-WEEEK_USER_ID=0044a107-6f54-4a5e-b2e2-859896283c63
-WEEEK_PROJECT_ID=2
-WEEEK_BOARD_COLUMN_ID=4
+WEEEK_USER_ID=put_your_user_id_here
+WEEEK_PROJECT_ID=put_your_project_id_here
+WEEEK_BOARD_COLUMN_ID=put+your_board_column_id_here
 
-ALLOWED_CHAT_IDS=
+ALLOWED_CHAT_IDS=put_allowed_chat_ids_here
 
 SERVER_TZ=Europe/Moscow
 TITLE_MAX_LEN=255
@@ -314,9 +314,9 @@ LOG_LEVEL=INFO
 Заполните пустые значения:
 
 ```dotenv
-TELEGRAM_BOT_TOKEN=
-WEEEK_API_KEY=
-ALLOWED_CHAT_IDS=
+TELEGRAM_BOT_TOKEN=put_telegram_bot_token_here
+WEEEK_API_KEY=put_weeek_api_key_here
+ALLOWED_CHAT_IDS=put_allowed_chat_ids_here
 ```
 
 актуальными данными вашей среды.
