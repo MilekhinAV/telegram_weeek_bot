@@ -67,8 +67,10 @@ EOF
 ### 3. Запуск
 
 ```bash
-docker compose build
-docker compose up -d
+sudo apt-get update
+sudo apt-get install docker-compose-plugin
+sudo docker compose build
+sudo docker compose up -d
 ```
 
 ### 4. Проверка
