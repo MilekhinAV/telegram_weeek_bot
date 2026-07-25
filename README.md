@@ -1,285 +1,76 @@
-# 🤖 Telegram → Weeek Bot
+# Telegram → Weeek Bot
 
-Бот для автоматического создания задач в системе **Weeek** из любых сообщений в групповом чате Telegram.  
-Каждое новое сообщение превращается в задачу через публичный API Weeek.
+Telegram-бот автоматически создаёт задачи в Weeek из сообщений группового чата.
 
----
+Бот обрабатывает сообщения от любых участников чата: пользователей и других Telegram-ботов. Поддерживаются текстовые сообщения, голосовые сообщения, фотографии, документы, видео, аудиозаписи, стикеры и другие распространённые типы контента.
 
-## ✨ Возможности
-- Реагирует на **любые сообщения** в указанном групповом чате (любой участник, бот или человек).
-- Поддержка текста, медиа и вложений:
-  - `title` задачи формируется из текста/подписи либо описания содержимого.
-  - `description` содержит полный текст + метаинформацию (тип контента, отправитель, дата).
-- Автоматическая установка срока задачи на **следующий календарный день**.
-- Обработка ошибок Weeek API с ретраями.
-- Логирование действий в консоль.
-- Контейнеризация (Dockerfile + docker-compose).
+## Возможности
 
----
+* Создание задачи в Weeek из каждого сообщения в Telegram-группе.
+* Обработка сообщений от людей и Telegram-ботов.
+* Поддержка текста, подписи к медиа, документов, фото, видео, аудио и голосовых сообщений.
+* Автоматическое назначение срока на следующий календарный день.
+* Ограничение работы конкретными Telegram-чатами.
+* Защита от циклической обработки собственных ответов бота.
+* Повторные попытки обращения к Weeek API при ошибках.
+* Логирование полученных сообщений и ответов API.
+* Запуск через Docker Compose.
+* Автоматический перезапуск контейнера после сбоя или перезагрузки сервера.
+* Ротация Docker-логов.
 
-## 🛠 Требования
-- Linux-сервер с Docker и Docker Compose v2.
-- Токен Telegram-бота.
-- API-ключ Weeek.
+## Логика работы
 
----
+1. Участник отправляет сообщение в Telegram-группу.
+2. Бот получает сообщение через Telegram long polling.
+3. Бот проверяет:
 
-## ⚙️ Установка и настройка
+   * сообщение получено из группы или супергруппы;
+   * идентификатор группы разрешён в `ALLOWED_CHAT_IDS`;
+   * сообщение не было отправлено самим ботом;
+   * сообщение содержит поддерживаемый тип данных.
+4. Бот формирует название и описание задачи.
+5. Бот отправляет POST-запрос в Weeek API.
+6. При успешном создании задачи бот отвечает:
 
-### 1. Клонировать репозиторий
-```bash
-git clone https://github.com/your-org/weeek-voice-bot.git
-cd weeek-voice-bot
-````
-
-### 2. Создать `.env`
-
-Скопируйте пример и заполните значения:
-
-```bash
-cat > .env <<'EOF'
-# Telegram
-TELEGRAM_BOT_TOKEN=123456:your_token_here
-
-# Weeek API
-WEEEK_API_KEY=<-------add your token here ---------->
-WEEEK_BASE_URL=https://api.weeek.net/public/v1
-WEEEK_TASKS_ENDPOINT=/tm/tasks
-
-# Поля задачи
-WEEEK_USER_ID=<-------add your user ID here ---------->
-WEEEK_PROJECT_ID=<-------add your project ID here ---------->
-WEEEK_BOARD_COLUMN_ID=<-------add your collumn ID here ---------->
-
-# Разрешенные ID чатов (через запятую), если нужно привязать к конкретной группе
-ALLOWED_CHAT_IDS=-10093794273940
-
-# Прочее
-SERVER_TZ=Europe/Moscow
-TITLE_MAX_LEN=255
-LOG_LEVEL=INFO
-EOF
+```text
+✅ Задача успешно создана в Weeek
 ```
 
-> Узнать `chat_id` можно, добавив бота в группу и вызвав:
-> `curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getUpdates"`
+При ошибке:
 
-### 3. Запуск
-
-To install Docker Compose on an Ubuntu VPS, the modern and recommended approach is to install it as a Docker CLI plugin (docker compose) directly from the official Docker repository. [1, 2] 
-Here is the complete step-by-step guide to setting up both Docker and Docker Compose.
-------------------------------
-## Step 1: Update and Install Prerequisites
-First, connect to your VPS via SSH. Update your local package index and install the tools required to secure your data and download Docker over HTTPS: [3, 4, 5, 6] 
-
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y ca-certificates curl gnupg
-
-## Step 2: Add Docker's Official GPG Key
-Download Docker’s official GPG key to verify package signatures before installation: [3, 7, 8] 
-
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-## Step 3: Add the Repository to Apt Sources
-Add the stable repository for your specific version of Ubuntu to your system package lists: [1, 6, 7] 
-
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-## Step 4: Install Docker and Docker Compose
-Refresh your package indexes once more to include the newly added repository. Then, install the complete Docker suite, including the Docker Compose plugin: [6, 7, 9, 10, 11] 
-
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-## Step 5: Verify the Installation
-Confirm that both Docker and the Docker Compose plugin are properly installed and active on your system: [3, 12, 13, 14, 15] 
-
-sudo docker --version
-docker compose version
-
-(Note: Modern Docker Compose v2 is run as docker compose without a hyphen). [1, 16] 
-------------------------------
-## Step 6: Run Docker Without Sudo (Optional)
-By default, Docker commands require sudo permissions. To avoid typing sudo every time, add your current user to the docker user group: [1, 6, 17, 18] 
-
-sudo usermod -aG docker $USER
-
-Important: Log out of your VPS terminal session and log back in to apply this permission change. [17, 18] 
-If you want to spin up your first application stack, let me know what kind of app you want to host (e.g., WordPress, Nginx, a Node.js API, or a database), and I can generate a custom docker-compose.yml file for you. [5, 13, 17, 19, 20] 
-
-
-### 4. Проверка
-
-Логи:
-
-```bash
-docker compose logs -f
-```
-
-Если бот работает правильно, при любом сообщении в группе он ответит:
-
-* `✅ Задача успешно создана в Weeek`
-* или `❌ Не удалось создать задачу...` при ошибке.
-
----
-
-## 🚀 Деплой на сервере Linux (чек-лист)
-
-1. Установить Docker и Compose:
-
-   ```bash
-   sudo apt-get update
-   sudo apt-get install -y docker.io docker-compose-plugin
-   ```
-
-2. Склонировать репозиторий:
-
-   ```bash
-   git clone https://github.com/your-org/weeek-voice-bot.git
-   cd weeek-voice-bot
-   ```
-
-3. Создать `.env` с токенами.
-
-4. Запустить:
-
-   ```bash
-   docker compose up -d
-   ```
-
-5. Проверить:
-
-   ```bash
-   docker compose ps
-   docker compose logs -f
-   ```
-
-6. При необходимости обновить:
-
-   ```bash
-   git pull
-   docker compose build
-   docker compose up -d
-   ```
-
----
-
-## 🔧 Управление
-
-* **Остановить:**
-
-  ```bash
-  docker compose down
-  ```
-
-* **Перезапустить:**
-
-  ```bash
-  docker compose restart
-  ```
-
-* **Логи:**
-
-  ```bash
-  docker compose logs -f
-  ```
-
----
-
-## ❓ FAQ и типовые ошибки
-
-### 1. Ошибка:
-
-```
-TelegramConflictError: Conflict: terminated by other getUpdates request
-```
-
-**Причина:** одновременно работает несколько экземпляров бота, либо у бота настроен webhook.
-**Решение:**
-
-* Завершить все процессы/контейнеры с ботом:
-
-  ```bash
-  docker compose down --remove-orphans
-  docker ps -q --filter "ancestor=weeek-voice-bot:latest" | xargs -r docker stop
-  ```
-* Проверить нет ли локального Python-процесса:
-
-  ```bash
-  pgrep -af "python.*main.py" | xargs -r kill
-  ```
-* Сбросить webhook:
-
-  ```bash
-  curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/deleteWebhook?drop_pending_updates=true"
-  ```
-
----
-
-### 2. Ошибка:
-
-```
-Error response from daemon: pull access denied for weeek-voice-bot
-```
-
-**Причина:** `docker compose` пытается скачать образ из реестра, но образ не опубликован.
-**Решение:**
-
-* Собрать локально:
-
-  ```bash
-  docker compose build
-  docker compose up -d
-  ```
-
----
-
-### 3. Ошибка:
-
-```
-TELEGRAM_BOT_TOKEN is not set
-```
-
-**Причина:** не задана переменная окружения в `.env`.
-**Решение:** открыть `.env` и заполнить `TELEGRAM_BOT_TOKEN`.
-
----
-
-### 4. Ошибка:
-
-```
+```text
 ❌ Не удалось создать задачу. Проверьте настройки или обратитесь к администратору.
 ```
 
-**Причина:** ошибка API Weeek (неверный ключ, ID проекта/доски или временная недоступность).
-**Решение:** проверить:
+## Формирование задачи Weeek
 
-* корректность `WEEEK_API_KEY`;
-* `WEEEK_USER_ID`, `WEEEK_PROJECT_ID`, `WEEEK_BOARD_COLUMN_ID`;
-* сетевое подключение сервера.
+Для текстового сообщения:
 
----
+* `title` — текст Telegram-сообщения;
+* `description` — полный текст Telegram-сообщения.
 
-### 5. Бот не реагирует в группе
+Для сообщения с подписью:
 
-* Убедитесь, что **privacy mode** отключён у бота через BotFather (`/setprivacy → Disable`).
-* Проверьте, что `ALLOWED_CHAT_IDS` в `.env` совпадает с ID вашей группы.
-* Посмотрите логи:
+* `title` — подпись к вложению;
+* `description` — полная подпись.
 
-  ```bash
-  docker compose logs -f
-  ```
+Для сообщения без текста бот формирует описание типа содержимого. Например:
 
----
-
-## 📂 Структура проекта
-
+```text
+Message from username: Document: report.pdf
 ```
+
+Дата выполнения задачи устанавливается на следующий календарный день в часовом поясе, указанном в `SERVER_TZ`.
+
+Используемый endpoint по умолчанию:
+
+```text
+https://api.weeek.net/public/v1/tm/tasks
+```
+
+## Структура проекта
+
+```text
 .
 ├── Dockerfile
 ├── docker-compose.yml
@@ -287,8 +78,946 @@ TELEGRAM_BOT_TOKEN is not set
 └── requirements.txt
 ```
 
----
+На сервере дополнительно создаётся файл:
 
-## 📜 Лицензия
+```text
+.env
+```
 
-MIT (или укажите свою)
+Файл `.env` не должен публиковаться в GitHub.
+
+## Требования
+
+Для работы проекта необходимы:
+
+* Ubuntu Server;
+* Docker Engine;
+* Docker Compose Plugin;
+* токен Telegram-бота;
+* API-ключ Weeek;
+* идентификатор пользователя Weeek;
+* идентификатор проекта Weeek;
+* идентификатор колонки доски Weeek;
+* идентификатор Telegram-группы.
+
+## Подготовка Telegram-бота
+
+Создайте Telegram-бота через BotFather и сохраните его токен.
+
+Добавьте бота в нужную Telegram-группу.
+
+Чтобы бот видел все сообщения участников группы, отключите Privacy Mode:
+
+```text
+BotFather → /setprivacy → выбрать бота → Disable
+```
+
+После изменения Privacy Mode рекомендуется удалить бота из группы и добавить его заново.
+
+## Установка Docker на Ubuntu
+
+Не смешивайте пакет `docker.io` из стандартного репозитория Ubuntu с пакетами `docker-ce` и `containerd.io` из официального репозитория Docker.
+
+При смешивании пакетов может появиться ошибка:
+
+```text
+containerd.io : Conflicts: containerd
+```
+
+### Удаление конфликтующих пакетов
+
+```bash
+sudo apt-get remove -y \
+  docker.io \
+  docker-compose \
+  docker-compose-v2 \
+  podman-docker \
+  containerd \
+  runc
+```
+
+Удаление этих пакетов не удаляет автоматически Docker-образы и контейнеры из `/var/lib/docker`.
+
+### Установка необходимых пакетов
+
+```bash
+sudo apt-get update
+
+sudo apt-get install -y \
+  ca-certificates \
+  curl
+```
+
+### Добавление ключа официального репозитория Docker
+
+```bash
+sudo install -m 0755 -d /etc/apt/keyrings
+
+sudo curl -fsSL \
+  https://download.docker.com/linux/ubuntu/gpg \
+  -o /etc/apt/keyrings/docker.asc
+
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+```
+
+### Добавление репозитория Docker
+
+```bash
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+```
+
+### Установка Docker Engine и Docker Compose
+
+```bash
+sudo apt-get update
+
+sudo apt-get install -y \
+  docker-ce \
+  docker-ce-cli \
+  containerd.io \
+  docker-buildx-plugin \
+  docker-compose-plugin
+```
+
+### Запуск и включение автозапуска Docker
+
+```bash
+sudo systemctl enable --now docker
+```
+
+Проверка:
+
+```bash
+docker --version
+docker compose version
+sudo systemctl is-active docker
+sudo systemctl is-enabled docker
+```
+
+Ожидаемый статус Docker:
+
+```text
+active
+enabled
+```
+
+## Работа с Docker без sudo
+
+Добавьте текущего пользователя в группу `docker`:
+
+```bash
+sudo usermod -aG docker "$USER"
+```
+
+Примените новую группу без перезагрузки:
+
+```bash
+newgrp docker
+```
+
+Проверьте доступ:
+
+```bash
+docker ps
+```
+
+Добавление пользователя в группу `docker` предоставляет ему привилегии, сопоставимые с административными на сервере.
+
+## Настройка Docker Compose
+
+Файл `docker-compose.yml` должен содержать локальную сборку через `build`.
+
+Используйте следующую конфигурацию:
+
+```yaml
+services:
+  weeek-voice-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: weeek-voice-bot:latest
+    restart: always
+
+    env_file:
+      - .env
+
+    environment:
+      TZ: Europe/Moscow
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; print('ok')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+Параметр:
+
+```yaml
+build:
+  context: .
+```
+
+указывает Docker Compose собирать образ локально из `Dockerfile`.
+
+Без `build` Docker Compose попытается скачать образ `weeek-voice-bot:latest` из Docker Hub и выдаст ошибку:
+
+```text
+pull access denied for weeek-voice-bot
+```
+
+## Создание файла `.env`
+
+Перейдите в каталог проекта:
+
+```bash
+cd ~/weeek_bot/weeek_bot
+```
+
+Создайте файл:
+
+```bash
+touch .env
+chmod 600 .env
+nano .env
+```
+
+Добавьте настройки:
+
+```dotenv
+TELEGRAM_BOT_TOKEN=
+WEEEK_API_KEY=
+
+WEEEK_BASE_URL=https://api.weeek.net/public/v1
+WEEEK_TASKS_ENDPOINT=/tm/tasks
+
+WEEEK_USER_ID=0044a107-6f54-4a5e-b2e2-859896283c63
+WEEEK_PROJECT_ID=2
+WEEEK_BOARD_COLUMN_ID=4
+
+ALLOWED_CHAT_IDS=
+
+SERVER_TZ=Europe/Moscow
+TITLE_MAX_LEN=255
+LOG_LEVEL=INFO
+```
+
+Заполните пустые значения:
+
+```dotenv
+TELEGRAM_BOT_TOKEN=
+WEEEK_API_KEY=
+ALLOWED_CHAT_IDS=
+```
+
+актуальными данными вашей среды.
+
+Для нескольких Telegram-групп укажите идентификаторы через запятую без пробелов:
+
+```dotenv
+ALLOWED_CHAT_IDS=-1001111111111,-1002222222222
+```
+
+Если `ALLOWED_CHAT_IDS` оставить пустым, бот сможет обрабатывать сообщения во всех группах, куда он добавлен.
+
+Это не рекомендуется для рабочего сервера.
+
+## Защита секретов
+
+Добавьте `.env` в `.gitignore`:
+
+```bash
+printf ".env\n__pycache__/\n*.pyc\n" >> .gitignore
+```
+
+Проверьте:
+
+```bash
+cat .gitignore
+```
+
+API-ключ Weeek и токен Telegram-бота нельзя:
+
+* сохранять в `main.py`;
+* добавлять в `Dockerfile`;
+* публиковать в GitHub;
+* вставлять в README;
+* передавать в открытых чатах;
+* сохранять в Docker-образе.
+
+Если API-ключ или Telegram-токен уже был опубликован, его необходимо отозвать и создать новый.
+
+## Проверка конфигурации
+
+Перед сборкой проверьте итоговую конфигурацию Compose:
+
+```bash
+cd ~/weeek_bot/weeek_bot
+docker compose config
+```
+
+Команда должна завершиться без ошибок.
+
+Вывод может содержать значения переменных окружения. Не публикуйте полный вывод, если в нём отображаются секреты.
+
+## Сборка Docker-образа
+
+Перейдите в каталог, где находятся `Dockerfile` и `docker-compose.yml`:
+
+```bash
+cd ~/weeek_bot/weeek_bot
+```
+
+Остановите предыдущую версию проекта:
+
+```bash
+docker compose down --remove-orphans
+```
+
+Соберите образ:
+
+```bash
+docker compose build --no-cache
+```
+
+Проверьте наличие локального образа:
+
+```bash
+docker images | grep weeek-voice-bot
+```
+
+Ожидаемый результат:
+
+```text
+weeek-voice-bot   latest
+```
+
+## Запуск бота
+
+Запустите контейнер в фоновом режиме:
+
+```bash
+docker compose up -d
+```
+
+Параметр `-d` означает detached mode. Контейнер продолжает работать после выхода из SSH-сессии.
+
+Проверьте состояние:
+
+```bash
+docker compose ps
+```
+
+Посмотрите последние логи:
+
+```bash
+docker compose logs --tail=100
+```
+
+Следите за логами в реальном времени:
+
+```bash
+docker compose logs -f
+```
+
+Для выхода из просмотра логов нажмите:
+
+```text
+Ctrl+C
+```
+
+Это остановит только просмотр логов. Контейнер продолжит работать.
+
+Проверить это можно командой:
+
+```bash
+docker compose ps
+```
+
+## Проверка работы
+
+1. Добавьте Telegram-бота в группу.
+2. Отключите Privacy Mode.
+3. Укажите ID группы в `ALLOWED_CHAT_IDS`.
+4. Отправьте в группу текстовое сообщение.
+5. Проверьте ответ Telegram-бота.
+6. Проверьте появление задачи в Weeek.
+7. Проверьте логи:
+
+```bash
+docker compose logs --tail=100
+```
+
+При успешной обработке в логах появятся сообщения, похожие на:
+
+```text
+Received message from username in chat -100...
+Processing message
+Task created in Weeek
+Sent reply to user
+```
+
+## Управление контейнером
+
+### Состояние
+
+```bash
+docker compose ps
+```
+
+### Запуск
+
+```bash
+docker compose up -d
+```
+
+### Остановка контейнера без удаления
+
+```bash
+docker compose stop
+```
+
+### Запуск остановленного контейнера
+
+```bash
+docker compose start
+```
+
+### Перезапуск
+
+```bash
+docker compose restart
+```
+
+### Остановка и удаление контейнера
+
+```bash
+docker compose down
+```
+
+### Последние 100 строк логов
+
+```bash
+docker compose logs --tail=100
+```
+
+### Логи в реальном времени
+
+```bash
+docker compose logs -f
+```
+
+### Состояние Docker Engine
+
+```bash
+sudo systemctl status docker --no-pager
+```
+
+## Обновление проекта
+
+После изменения `main.py`, `Dockerfile` или `requirements.txt` необходимо пересобрать образ.
+
+```bash
+cd ~/weeek_bot/weeek_bot
+
+docker compose down
+
+docker compose build --no-cache
+
+docker compose up -d
+
+docker compose ps
+
+docker compose logs --tail=100
+```
+
+Команда `docker compose restart` не пересобирает образ и не применяет изменения из `main.py`, если код копируется внутрь образа на этапе сборки.
+
+## Обновление проекта из GitHub
+
+После получения изменений:
+
+```bash
+cd ~/weeek_bot/weeek_bot
+
+git pull
+
+docker compose down
+
+docker compose build --no-cache
+
+docker compose up -d
+
+docker compose ps
+```
+
+## Автоматический запуск после перезагрузки
+
+В `docker-compose.yml` используется:
+
+```yaml
+restart: always
+```
+
+Это означает, что Docker автоматически запустит контейнер:
+
+* после падения процесса;
+* после перезапуска Docker Engine;
+* после перезагрузки сервера.
+
+Docker Engine также должен быть включён в автозапуск:
+
+```bash
+sudo systemctl enable docker
+```
+
+Проверка:
+
+```bash
+sudo systemctl is-enabled docker
+docker inspect weeek-voice-bot-1 --format '{{.HostConfig.RestartPolicy.Name}}'
+```
+
+Название контейнера может отличаться. Точное имя можно получить:
+
+```bash
+docker compose ps
+```
+
+## Почему не используется `docker compose pull`
+
+Команда:
+
+```bash
+docker compose pull
+```
+
+загружает образ из Docker Registry.
+
+В текущей конфигурации образ создаётся непосредственно на сервере из локального `Dockerfile`, поэтому используется:
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+Команду `docker compose pull` следует использовать только после публикации образа в Docker Hub, GitHub Container Registry или другом Docker Registry.
+
+## Типовые ошибки
+
+### Cannot connect to the Docker daemon
+
+Ошибка:
+
+```text
+Cannot connect to the Docker daemon at unix:///var/run/docker.sock.
+Is the docker daemon running?
+```
+
+Причина: Docker Engine не запущен или текущий пользователь не имеет доступа к Docker socket.
+
+Проверьте Docker:
+
+```bash
+sudo systemctl status docker --no-pager
+```
+
+Запустите и включите автозапуск:
+
+```bash
+sudo systemctl enable --now docker
+```
+
+Проверьте:
+
+```bash
+docker ps
+```
+
+При ошибке доступа добавьте пользователя в группу `docker`:
+
+```bash
+sudo usermod -aG docker "$USER"
+newgrp docker
+```
+
+### pull access denied for weeek-voice-bot
+
+Ошибка:
+
+```text
+pull access denied for weeek-voice-bot, repository does not exist
+```
+
+Причина: в `docker-compose.yml` указан параметр `image`, но отсутствует локальная сборка `build`.
+
+Проверьте, что конфигурация содержит:
+
+```yaml
+build:
+  context: .
+  dockerfile: Dockerfile
+```
+
+Затем выполните:
+
+```bash
+docker compose build --no-cache
+docker compose up -d
+```
+
+Не выполняйте `docker compose pull`, если образ не опубликован в Registry.
+
+### containerd.io conflicts with containerd
+
+Ошибка:
+
+```text
+containerd.io : Conflicts: containerd
+```
+
+Причина: одновременно используются пакеты из репозитория Ubuntu и официального репозитория Docker.
+
+Удалите конфликтующие пакеты:
+
+```bash
+sudo apt-get remove -y \
+  docker.io \
+  docker-compose \
+  docker-compose-v2 \
+  podman-docker \
+  containerd \
+  runc
+```
+
+Установите официальный набор Docker:
+
+```bash
+sudo apt-get update
+
+sudo apt-get install -y \
+  docker-ce \
+  docker-ce-cli \
+  containerd.io \
+  docker-buildx-plugin \
+  docker-compose-plugin
+```
+
+### TelegramConflictError
+
+Ошибка:
+
+```text
+TelegramConflictError: Conflict: terminated by other getUpdates request
+```
+
+Причина: один Telegram-токен одновременно используется несколькими экземплярами бота.
+
+Telegram long polling допускает только один активный процесс с одним токеном.
+
+Посмотрите Docker-контейнеры:
+
+```bash
+docker ps -a | grep -i weeek
+```
+
+Посмотрите все Compose-проекты:
+
+```bash
+docker compose ls
+```
+
+Остановите текущий Compose-проект:
+
+```bash
+docker compose down --remove-orphans
+```
+
+Найдите локальные Python-процессы:
+
+```bash
+pgrep -af "python.*main.py"
+```
+
+При наличии лишнего процесса завершите его:
+
+```bash
+pkill -f "python.*main.py"
+```
+
+Проверьте systemd-сервисы:
+
+```bash
+systemctl list-units --type=service | grep -i weeek
+```
+
+После остановки лишних экземпляров запустите одну копию:
+
+```bash
+docker compose up -d
+docker compose logs --tail=100
+```
+
+Если ранее использовался webhook, удалите его через Telegram Bot API, а затем снова запустите long polling.
+
+### TELEGRAM_BOT_TOKEN is not set
+
+Ошибка:
+
+```text
+TELEGRAM_BOT_TOKEN is not set
+```
+
+Причина: отсутствует файл `.env`, в нём нет переменной или Compose не подключает файл.
+
+Проверьте:
+
+```bash
+cd ~/weeek_bot/weeek_bot
+ls -la .env
+grep '^TELEGRAM_BOT_TOKEN=' .env
+```
+
+Проверьте `docker-compose.yml`:
+
+```yaml
+env_file:
+  - .env
+```
+
+Пересоздайте контейнер:
+
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+### WEEEK_API_KEY is not set
+
+Ошибка:
+
+```text
+WEEEK_API_KEY is not set
+```
+
+Проверьте наличие значения:
+
+```bash
+grep '^WEEEK_API_KEY=' .env
+```
+
+После исправления:
+
+```bash
+docker compose up -d --build
+```
+
+### Бот не реагирует на сообщения
+
+Проверьте Privacy Mode через BotFather:
+
+```text
+/setprivacy → выбрать бота → Disable
+```
+
+Проверьте ID группы:
+
+```bash
+grep '^ALLOWED_CHAT_IDS=' .env
+```
+
+Посмотрите логи:
+
+```bash
+docker compose logs --tail=200
+```
+
+Если сообщение отклонено фильтром, в логах будет:
+
+```text
+Message rejected by should_process
+```
+
+Возможные причины:
+
+* сообщение отправлено не в группе;
+* Telegram-группа отсутствует в `ALLOWED_CHAT_IDS`;
+* сообщение отправлено самим ботом;
+* тип сообщения не входит в список поддерживаемых.
+
+### Бот получает сообщения, но задача не создаётся
+
+Посмотрите ответ Weeek API:
+
+```bash
+docker compose logs --tail=200 | grep -E "Weeek API error|Weeek API exception"
+```
+
+Проверьте:
+
+```dotenv
+WEEEK_API_KEY=
+WEEEK_BASE_URL=https://api.weeek.net/public/v1
+WEEEK_TASKS_ENDPOINT=/tm/tasks
+WEEEK_USER_ID=0044a107-6f54-4a5e-b2e2-859896283c63
+WEEEK_PROJECT_ID=2
+WEEEK_BOARD_COLUMN_ID=4
+```
+
+Возможные причины:
+
+* недействительный API-ключ;
+* неправильный endpoint;
+* пользователь Weeek не существует;
+* проект или колонка недоступны;
+* API-ключ не имеет нужных прав;
+* сервер не имеет доступа в интернет;
+* Weeek API временно недоступен.
+
+Проверка сетевого доступа:
+
+```bash
+curl -I https://api.weeek.net
+```
+
+### Неверная дата задачи
+
+Проверьте настройки:
+
+```bash
+grep -E '^(SERVER_TZ|WEEEK_TASKS_ENDPOINT)=' .env
+```
+
+Рекомендуемое значение:
+
+```dotenv
+SERVER_TZ=Europe/Moscow
+```
+
+Проверьте время внутри контейнера:
+
+```bash
+docker compose exec weeek-voice-bot date
+```
+
+### Контейнер постоянно перезапускается
+
+Посмотрите состояние:
+
+```bash
+docker compose ps
+```
+
+Посмотрите логи:
+
+```bash
+docker compose logs --tail=200
+```
+
+Посмотрите причину завершения:
+
+```bash
+docker inspect weeek-voice-bot-1 \
+  --format 'Status={{.State.Status}} ExitCode={{.State.ExitCode}} Error={{.State.Error}}'
+```
+
+Уточните фактическое имя контейнера через:
+
+```bash
+docker compose ps
+```
+
+### Изменения в main.py не применились
+
+Причина: код находится внутри Docker-образа, а контейнер был только перезапущен.
+
+Выполните пересборку:
+
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
+
+### Просмотр логов завершён через Ctrl+C
+
+Команда:
+
+```bash
+docker compose logs -f
+```
+
+работает в интерактивном режиме.
+
+Нажатие `Ctrl+C` останавливает только просмотр логов и не останавливает контейнер.
+
+Проверка:
+
+```bash
+docker compose ps
+```
+
+## Полная последовательность первого запуска
+
+```bash
+cd ~/weeek_bot/weeek_bot
+
+sudo systemctl enable --now docker
+
+docker compose config
+
+docker compose down --remove-orphans
+
+docker compose build --no-cache
+
+docker compose up -d
+
+docker compose ps
+
+docker compose logs --tail=100
+```
+
+## Полная последовательность обновления
+
+```bash
+cd ~/weeek_bot/weeek_bot
+
+git pull
+
+docker compose down
+
+docker compose build --no-cache
+
+docker compose up -d
+
+docker compose ps
+
+docker compose logs --tail=100
+```
+
+## Безопасность
+
+Рекомендуется:
+
+* обязательно ограничить `ALLOWED_CHAT_IDS`;
+* хранить `.env` с правами `600`;
+* не запускать несколько экземпляров с одним Telegram-токеном;
+* регулярно обновлять Docker Engine и базовый Python-образ;
+* не публиковать ответы Weeek API, если они содержат чувствительные данные;
+* отозвать ранее опубликованные ключи и токены;
+* выполнять резервное копирование `.env` в защищённое хранилище;
+* не включать `.env` в Docker-образ;
+* ограничить доступ к серверу по SSH-ключам.
+
+## Лицензия
+
+Укажите лицензию проекта отдельным файлом `LICENSE`, если репозиторий планируется распространять публично.
