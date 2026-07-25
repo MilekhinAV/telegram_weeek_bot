@@ -66,12 +66,52 @@ EOF
 
 ### 3. Запуск
 
-```bash
-sudo apt-get update
-sudo apt-get install docker-compose-plugin
-sudo docker compose build
-sudo docker compose up -d
-```
+To install Docker Compose on an Ubuntu VPS, the modern and recommended approach is to install it as a Docker CLI plugin (docker compose) directly from the official Docker repository. [1, 2] 
+Here is the complete step-by-step guide to setting up both Docker and Docker Compose.
+------------------------------
+## Step 1: Update and Install Prerequisites
+First, connect to your VPS via SSH. Update your local package index and install the tools required to secure your data and download Docker over HTTPS: [3, 4, 5, 6] 
+
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y ca-certificates curl gnupg
+
+## Step 2: Add Docker's Official GPG Key
+Download Docker’s official GPG key to verify package signatures before installation: [3, 7, 8] 
+
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+## Step 3: Add the Repository to Apt Sources
+Add the stable repository for your specific version of Ubuntu to your system package lists: [1, 6, 7] 
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+## Step 4: Install Docker and Docker Compose
+Refresh your package indexes once more to include the newly added repository. Then, install the complete Docker suite, including the Docker Compose plugin: [6, 7, 9, 10, 11] 
+
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+## Step 5: Verify the Installation
+Confirm that both Docker and the Docker Compose plugin are properly installed and active on your system: [3, 12, 13, 14, 15] 
+
+sudo docker --version
+docker compose version
+
+(Note: Modern Docker Compose v2 is run as docker compose without a hyphen). [1, 16] 
+------------------------------
+## Step 6: Run Docker Without Sudo (Optional)
+By default, Docker commands require sudo permissions. To avoid typing sudo every time, add your current user to the docker user group: [1, 6, 17, 18] 
+
+sudo usermod -aG docker $USER
+
+Important: Log out of your VPS terminal session and log back in to apply this permission change. [17, 18] 
+If you want to spin up your first application stack, let me know what kind of app you want to host (e.g., WordPress, Nginx, a Node.js API, or a database), and I can generate a custom docker-compose.yml file for you. [5, 13, 17, 19, 20] 
+
 
 ### 4. Проверка
 
